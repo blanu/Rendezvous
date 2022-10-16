@@ -44,7 +44,10 @@ struct New: ParsableCommand
         #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
         let keychain = Keychain()
         #else
-        let keychain = Keychain(baseDirectory: File.homeDirectory().appendingPathComponent(".rendezvous-server"))
+        guard let keychain = Keychain(baseDirectory: File.homeDirectory().appendingPathComponent(".rendezvous-server")) else
+        {
+            throw NewCommandError.couldNotLoadKeychain
+        }
         #endif
 
         guard let privateKeyKeyAgreement = keychain.generateAndSavePrivateKey(label: "Rendezvous.KeyAgreement", type: .P256KeyAgreement) else
@@ -104,4 +107,5 @@ public enum NewCommandError: Error
 {
     case portInUse
     case couldNotGeneratePrivateKey
+    case couldNotLoadKeychain
 }
