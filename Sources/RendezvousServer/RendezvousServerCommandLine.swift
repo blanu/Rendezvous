@@ -8,6 +8,12 @@
 import ArgumentParser
 import Lifecycle
 import Foundation
+
+#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+#else
+import FoundationNetworking
+#endif
+
 import Logging
 import NIO
 
