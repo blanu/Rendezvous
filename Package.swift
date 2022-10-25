@@ -29,10 +29,14 @@ let package = Package(
     dependencies: [
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
+        .package(url: "https://github.com/OperatorFoundation/Abacus", branch: "main"),
+        .package(url: "https://github.com/OperatorFoundation/Chord", branch: "main"),
         .package(url: "https://github.com/OperatorFoundation/Gardener", branch: "main"),
         .package(url: "https://github.com/swift-server/swift-service-lifecycle", from: "1.0.0-alpha.11"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
         .package(url: "https://github.com/OperatorFoundation/Nametag", branch: "main"),
+        .package(url: "https://github.com/OperatorFoundation/Net", branch: "main"),
+        .package(url: "https://github.com/OperatorFoundation/Straw", branch: "main"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
         .package(url: "https://github.com/OperatorFoundation/ShadowSwift", branch: "main"),
     ],
@@ -42,14 +46,19 @@ let package = Package(
         .target(
             name: "Rendezvous",
             dependencies: [
+                "Abacus",
                 "Nametag",
+                "Net",
                 "ShadowSwift",
             ]
         ),
         .target(
             name: "RendezvousClient",
             dependencies: [
+                "Chord",
                 "Rendezvous",
+                "ShadowSwift",
+                "Straw",
             ]
         ),
         .executableTarget(

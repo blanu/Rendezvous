@@ -19,6 +19,7 @@ import NIO
 
 import Gardener
 import Keychain
+import Nametag
 import Rendezvous
 import Transmission
 
@@ -33,6 +34,9 @@ struct RendezvousServerCommandLine: ParsableCommand
 
 struct New: ParsableCommand
 {
+    @Argument(help: "Human-readable name for your server to use in invites")
+    var name: String
+
     @Argument(help: "Port on which to run the server")
     var port: Int
 
@@ -60,9 +64,16 @@ struct New: ParsableCommand
         {
             throw NewCommandError.couldNotGeneratePrivateKey
         }
-        let publicKeyKeyAgreemnet = privateKeyKeyAgreement.publicKey
 
-        let config = RendezvousConfig(host: ip, port: port, publicKey: publicKeyKeyAgreemnet)
+        guard let nametag = Nametag() else
+        {
+            throw NewCommandError.nametagError
+        }
+
+        let privateIdentity = try PrivateIdentity(keyAgreement: privateKeyKeyAgreement, nametag: nametag)
+        let publicIdentity = privateIdentity.publicIdentity
+
+        let config = Config(name: name, host: ip, port: port, identity: publicIdentity)
         let encoder = JSONEncoder()
         let configData = try encoder.encode(config)
         let configURL = URL(fileURLWithPath: File.currentDirectory()).appendingPathComponent("rendezvous-config.json")
@@ -80,7 +91,7 @@ struct Run: ParsableCommand
         let configURL = URL(fileURLWithPath: File.currentDirectory()).appendingPathComponent("rendezvous-config.json")
         let configData = try Data(contentsOf: configURL)
         let decoder = JSONDecoder()
-        let config = try decoder.decode(RendezvousConfig.self, from: configData)
+        let config = try decoder.decode(Config.self, from: configData)
         print("Read config from \(configURL.path)")
 
         let lifecycle = ServiceLifecycle()
@@ -88,7 +99,7 @@ struct Run: ParsableCommand
         let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
         lifecycle.registerShutdown(label: "eventLoopGroup", .sync(eventLoopGroup.syncShutdownGracefully))
 
-        let server = try RendezvousServer(host: config.host, port: config.port, key: config.publicKey, logger: logger)
+        let server = try RendezvousServer(config: config, logger: logger)
         lifecycle.register(label: "server", start: .sync(server.start), shutdown: .sync(server.shutdown))
 
         lifecycle.start
@@ -114,4 +125,5 @@ public enum NewCommandError: Error
     case portInUse
     case couldNotGeneratePrivateKey
     case couldNotLoadKeychain
+    case nametagError
 }
