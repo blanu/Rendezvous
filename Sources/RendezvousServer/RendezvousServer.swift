@@ -8,6 +8,7 @@
 import Foundation
 import Logging
 
+import Chord
 import Keychain
 import Nametag
 import Rendezvous
@@ -19,11 +20,13 @@ public class RendezvousServer
 {
     let config: Config
     let logger: Logger
-    var runloop: Thread? = nil
     let server: ShadowServer
     let nametag: Nametag
+    var connections: [UUID: ServerConnection] = [:]
+    let multiqueue: MultiQueue<Message> = MultiQueue<Message>()
     let routing = RoutingController()
-    var threads: [UUID: ServerConnection] = [:]
+    var acceptLoop: Thread? = nil
+    var readLoop: Thread? = nil
 
     public init(config: Config, logger: Logger) throws
     {
@@ -51,7 +54,7 @@ public class RendezvousServer
 
     public func start()
     {
-        self.runloop = Thread
+        self.acceptLoop = Thread
         {
             while true
             {
@@ -63,7 +66,11 @@ public class RendezvousServer
                     {
                         let uuid = UUID()
                         let serverConnection = try ServerConnection(network: connection, logger: self.logger)
-                        self.threads[uuid] = serverConnection
+                        try self.routing.addDirect(identity: serverConnection.clientIdentity, connection: serverConnection)
+
+                        let producer = MessageProducer(multi: self.multiqueue, connection: serverConnection)
+                        self.multiqueue.add(producer)
+                        self.connections[uuid] = serverConnection
                     }
                     catch
                     {
@@ -73,11 +80,36 @@ public class RendezvousServer
                 }
                 catch
                 {
-                    if let runloop = self.runloop
+                    if let runloop = self.acceptLoop
                     {
                         runloop.cancel()
-                        self.runloop = nil
+                        self.acceptLoop = nil
                     }
+                }
+            }
+        }
+
+        self.readLoop = Thread
+        {
+            while true
+            {
+                let message = self.multiqueue.dequeue()
+
+                switch message
+                {
+                    case .reachable(let reachable):
+                        self.routing.addIndirect(identity: reachable.identity, location: reachable.location)
+
+                    case .routedDocument(let routed):
+                        if let route = self.routing.find(identity: routed.to)
+                        {
+                            route.write(message: routed)
+                        }
+                        else
+                        {
+                            print("No know route for \(message.to)")
+                            continue
+                        }
                 }
             }
         }
@@ -85,10 +117,10 @@ public class RendezvousServer
 
     public func shutdown()
     {
-        if let runloop = self.runloop
+        if let runloop = self.acceptLoop
         {
             runloop.cancel()
-            self.runloop = nil
+            self.acceptLoop = nil
         }
     }
 }

@@ -8,6 +8,7 @@
 import Foundation
 
 import Abacus
+import Chord
 import Keychain
 import Nametag
 import Transmission

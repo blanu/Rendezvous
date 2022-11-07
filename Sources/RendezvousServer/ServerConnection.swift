@@ -22,10 +22,11 @@ import Transmission
 // A connection to a server
 public actor ServerConnection: RendezvousConnection
 {
+    public let clientIdentity: PublicKey
+    
     let network: Transmission.Connection
     let logger: Logger
 
-    let clientIdentity: PublicKey
     let nametag: Nametag
     var open = true
 
